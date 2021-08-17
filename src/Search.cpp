@@ -19,7 +19,7 @@ bool Search::InitSearch()
 std::vector<WeChatResult> Search::SearchExe()
 {
 	std::vector<string> VPath = GetPath("WeChat Files","Applet");
-	VPath.clear(); VPath.emplace_back("E:\\Syudy_Test\\WeChatTest\\ttt");
+	//VPath.clear(); VPath.emplace_back("E:\\Syudy_Test\\WeChatTest\\ttt");
 	std::vector<string> VAllUser, temp;
 	for each(string path in VPath) 
 	{
@@ -27,7 +27,6 @@ std::vector<WeChatResult> Search::SearchExe()
 		LoadAllUserPath(path.c_str(), "FileStorage", temp);
 		VAllUser.insert(VAllUser.end(),temp.begin(),temp.end());
 	}
-	//std::vector<string> VUserPath = GetPath("FileStorage", "Image");
 	std::vector<WeChatResult> vresult;
 	for each(string path in VAllUser)
 	{
