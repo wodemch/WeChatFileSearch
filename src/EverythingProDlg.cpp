@@ -39,7 +39,7 @@ UINT StartSearchPro(LPVOID lpParam)
 			if (pAL->bThreadRun == false)break;
 			string file = path + "\\" + varP.FileName;
 			MT_CopyFile(varP.Path.c_str(), file.c_str(), true);
-			pAL->ShowInfo("username:%s, File:%d-%d,%s", obj.UserName, ++index, obj.vFilePath.size(), file.c_str());
+			pAL->ShowInfo("username:%s, File:%d-%d,%s", obj.UserName.c_str(), ++index, obj.vFilePath.size(), file.c_str());
 		}
 		index = 0;
 		path = newfile + "\\Image";
@@ -48,7 +48,7 @@ UINT StartSearchPro(LPVOID lpParam)
 			if (pAL->bThreadRun == false)break;
 			string file = path + "\\" + varP.FileName;
 			MT_CopyFile(varP.Path.c_str(), file.c_str(), true);
-			pAL->ShowInfo("username:%s, Image:%d-%d,%s", obj.UserName, ++index, obj.vImagePath.size(), file.c_str());
+			pAL->ShowInfo("username:%s, Image:%d-%d,%s", obj.UserName.c_str(), ++index, obj.vImagePath.size(), file.c_str());
 		}
 		index = 0;
 		path = newfile + "\\Video";
@@ -57,10 +57,13 @@ UINT StartSearchPro(LPVOID lpParam)
 			if (pAL->bThreadRun == false)break;
 			string file = path + "\\" + varP.FileName;
 			MT_CopyFile(varP.Path.c_str(), file.c_str(), true);
-			pAL->ShowInfo("username:%s, Video:%d-%d,%s", obj.UserName, ++index, obj.vVideoPath.size(), file.c_str());
+			pAL->ShowInfo("username:%s, Video:%d-%d,%s", obj.UserName.c_str(), ++index, obj.vVideoPath.size(), file.c_str());
 		}
 	}
 	pAL->bThreadRun = false;
+	pAL->ShowInfo("copy finish");
+	pAL->m_btncopy.EnableWindow(true);
+	pAL->m_btnStop.EnableWindow(false);
 	return 0;
 }
 
