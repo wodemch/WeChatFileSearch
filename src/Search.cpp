@@ -33,7 +33,7 @@ std::vector<WeChatResult> Search::SearchExe()
 		WeChatResult res;
 		res.RootPath = path;
 		int rt = path.rfind("\\");
-		res.UserName = path.substr(rt+2);
+		res.UserName = path.substr(rt+1);
 		string filepath = path + "\\FileStorage\\File";
 		LoadAllFile(filepath.c_str(), res.vFilePath);
 		filepath = path + "\\FileStorage\\Image";

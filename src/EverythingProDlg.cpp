@@ -8,11 +8,61 @@
 #include "EverythingProDlg.h"
 #include "afxdialogex.h"
 
+#include"./mtgh/MtghWindow.h"
+
+#ifdef _WIN64
+#pragma comment(lib, "./mtgh/MtghWindow_x64.lib")
+#else
+#pragma comment(lib, "./mtgh/MtghWindow_Win32.lib")
+#endif
+
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
 
 
+UINT StartSearchPro(LPVOID lpParam)
+{
+	CEverythingProDlg* pAL = (CEverythingProDlg*)lpParam;
+	pAL->bThreadRun = true;	
+	string newRootPath = pAL->mSavePath;
+	for each(WeChatResult obj in pAL->VweChat)
+	{
+		string newfile = newRootPath + "\\" + obj.UserName;
+		//MT_CopyFile(obj.RootPath.c_str(), newfile.c_str());
+
+		string path = newfile + "\\File";
+		int index = 0;
+		for each (PathInfo varP in obj.vFilePath)
+		{
+			if (pAL->bThreadRun == false)break;
+			string file = path + "\\" + varP.FileName;
+			MT_CopyFile(varP.Path.c_str(), file.c_str(), true);
+			pAL->ShowInfo("username:%s, File:%d-%d,%s", obj.UserName, ++index, obj.vFilePath.size(), file.c_str());
+		}
+		index = 0;
+		path = newfile + "\\Image";
+		for each (PathInfo varP in obj.vImagePath)
+		{
+			if (pAL->bThreadRun == false)break;
+			string file = path + "\\" + varP.FileName;
+			MT_CopyFile(varP.Path.c_str(), file.c_str(), true);
+			pAL->ShowInfo("username:%s, Image:%d-%d,%s", obj.UserName, ++index, obj.vImagePath.size(), file.c_str());
+		}
+		index = 0;
+		path = newfile + "\\Video";
+		for each (PathInfo varP in obj.vVideoPath)
+		{
+			if (pAL->bThreadRun == false)break;
+			string file = path + "\\" + varP.FileName;
+			MT_CopyFile(varP.Path.c_str(), file.c_str(), true);
+			pAL->ShowInfo("username:%s, Video:%d-%d,%s", obj.UserName, ++index, obj.vVideoPath.size(), file.c_str());
+		}
+	}
+	pAL->bThreadRun = false;
+	return 0;
+}
 
 // 用于应用程序“关于”菜单项的 CAboutDlg 对话框
 
@@ -53,8 +103,6 @@ END_MESSAGE_MAP()
 
 CEverythingProDlg::CEverythingProDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_EVERYTHINGPRO_DIALOG, pParent)
-	, m_str_Search(_T(""))
-	, m_str_Exclude(_T(""))
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -62,20 +110,24 @@ CEverythingProDlg::CEverythingProDlg(CWnd* pParent /*=nullptr*/)
 void CEverythingProDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
-	DDX_Text(pDX, IDC_EDIT_Search, m_str_Search);
-	DDX_Text(pDX, IDC_EDIT2, m_str_Exclude);
-	DDX_Control(pDX, IDC_LIST1, m_ListCtrl);
-	DDX_Control(pDX, IDC_TREE1, m_Tree);
+	DDX_Control(pDX, IDC_STATIC_PATH, m_Static_path);
+	DDX_Control(pDX, IDC_LIST1, m_listBox);
+	DDX_Control(pDX, IDC_STATIC_INFO, m_Static_Info);
+	DDX_Control(pDX, IDC_BUTTON_Search, m_btnSearch);
+	DDX_Control(pDX, IDC_BUTTON_STOP, m_btnStop);
+	DDX_Control(pDX, IDC_BUTTON_Copy, m_btncopy);
 }
 
 BEGIN_MESSAGE_MAP(CEverythingProDlg, CDialogEx)
 	ON_WM_SYSCOMMAND()
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
-	ON_EN_CHANGE(IDC_EDIT_Search, &CEverythingProDlg::OnEnChangeEditSearch)
 	ON_BN_CLICKED(IDC_BUTTON_Search, &CEverythingProDlg::OnBnClickedButtonSearch)
 	ON_WM_KEYDOWN()
-	ON_NOTIFY(NM_DBLCLK, IDC_TREE1, &CEverythingProDlg::OnNMDblclkTree1)
+	ON_BN_CLICKED(IDC_BUTTON_SELECTPATH, &CEverythingProDlg::OnBnClickedButtonSelectpath)
+	ON_BN_CLICKED(IDC_BUTTON_Search2, &CEverythingProDlg::OnBnClickedButtonSearch2)
+	ON_BN_CLICKED(IDC_BUTTON_STOP, &CEverythingProDlg::OnBnClickedButtonStop)
+	ON_BN_CLICKED(IDC_BUTTON_Copy, &CEverythingProDlg::OnBnClickedButtonCopy)
 END_MESSAGE_MAP()
 
 
@@ -110,12 +162,8 @@ BOOL CEverythingProDlg::OnInitDialog()
 	SetIcon(m_hIcon, TRUE);			// 设置大图标
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 	
-
-	// TODO: 在此添加额外的初始化代码
-	m_ListCtrl.InsertColumn(0, _T("名称"), LVCFMT_LEFT, 255);
-	m_ListCtrl.InsertColumn(1, _T("路径"), LVCFMT_LEFT, 500);
-	m_ListCtrl.InsertColumn(2, _T("大小"), LVCFMT_LEFT, 270);
-
+	sprintf_s(mSavePath, MAX_PATH, "E:\\111");
+	bThreadRun = false;
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
 
@@ -168,55 +216,52 @@ HCURSOR CEverythingProDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
-
-void CEverythingProDlg::SetListText(int index, std::string name, std::string path, LONGLONG size)
+void CEverythingProDlg::ShowInfo(const char* format, ...)
 {
-	m_ListCtrl.InsertItem(index, name.c_str());    
-	m_ListCtrl.SetItemText(index, 1, path.c_str()); 
-	//m_ListCtrl.SetItemText(index, 2, itoa(size));
+	char buf[1024] = "";
+	va_list arg;
+	va_start(arg, format);
+	vsprintf_s(buf,1024, format, arg);
+	va_end(arg);
+	m_Static_Info.SetWindowTextA(buf);
 }
-
-void CEverythingProDlg::OnEnChangeEditSearch()
-{
-	
-}
-
 
 void CEverythingProDlg::OnBnClickedButtonSearch()
 {
-	UpdateData(true);
-	sprintf_s(mParams.searchStr, MAX_SEARCH_LENGHT, m_str_Search.GetBuffer());
-	sprintf_s(mParams.excludeStr, MAX_SEARCH_LENGHT, m_str_Exclude.GetBuffer());
+	if (bThreadRun) {
+		AfxMessageBox("请等待等待上一次搜索结束", MB_ICONWARNING);
+	}
+	else {
+		VweChat.clear();
+		VweChat = mSearch.SearchExe();
+		char buf[256] = "";
+		m_listBox.ResetContent();
+		for each(WeChatResult obj in VweChat)
+		{
+			sprintf_s(buf, 512, "%s: File:%d, Image:%d, Video:%d", obj.UserName.c_str(),
+				obj.vFilePath.size(), obj.vImagePath.size(), obj.vVideoPath.size());
+			m_listBox.AddString(buf);
+		}			
+	}	
+}
 
-	vector<WeChatResult> VweChat = mSearch.SearchExe();
-	for each(WeChatResult obj in VweChat) 
-	{
-		HTREEITEM root = m_Tree.InsertItem(obj.UserName.c_str());
-		HTREEITEM FileTree = m_Tree.InsertItem("File",root);
-		for each(PathInfo info in obj.vFilePath)
-		{
-			m_Tree.InsertItem(info.FileName.c_str(), FileTree);
-		}
-		HTREEITEM ImageTree = m_Tree.InsertItem("Image", root);
-		for each(PathInfo info in obj.vImagePath)
-		{
-			m_Tree.InsertItem(info.FileName.c_str(), ImageTree);
-		}
-		HTREEITEM VideoTree = m_Tree.InsertItem("Video", root);
-		for each(PathInfo info in obj.vVideoPath)
-		{
-			m_Tree.InsertItem(info.FileName.c_str(), VideoTree);
-		}
+void CEverythingProDlg::OnBnClickedButtonCopy()
+{
+	if (bThreadRun) {
+		AfxMessageBox("请等待等待上一次拷贝结束", MB_ICONWARNING);
 	}
-	
-	return;
-	VAllResult = mSearch.SearchExe(mParams);
-	m_ListCtrl.DeleteAllItems();
-	int maxNum = min(100, VAllResult.size());
-	for (size_t i = 0; i < maxNum; i++)
-	{
-		SetListText(i, VAllResult.at(i).Name, VAllResult.at(i).Path, VAllResult.at(i).size.QuadPart);
+	else {
+		m_btncopy.EnableWindow(false);
+		m_btnStop.EnableWindow(true);
+		m_pInspectThread = AfxBeginThread(StartSearchPro, (LPVOID)this);
 	}
+}
+
+void CEverythingProDlg::OnBnClickedButtonStop()
+{
+	bThreadRun = false;
+	m_btncopy.EnableWindow(true);
+	m_btnStop.EnableWindow(false);
 }
 
 BOOL CEverythingProDlg::PreTranslateMessage(MSG* pMsg)
@@ -224,16 +269,27 @@ BOOL CEverythingProDlg::PreTranslateMessage(MSG* pMsg)
 	if (pMsg->message == WM_KEYDOWN && pMsg->wParam == VK_ESCAPE) return TRUE;
 	if (pMsg->message == WM_KEYDOWN && pMsg->wParam == VK_RETURN)
 	{
-		OnBnClickedButtonSearch();
 		return TRUE;
 	}
 	else
 		return CDialog::PreTranslateMessage(pMsg);
 }
 
-
-void CEverythingProDlg::OnNMDblclkTree1(NMHDR *pNMHDR, LRESULT *pResult)
+void CEverythingProDlg::OnBnClickedButtonSelectpath()
 {
-	// TODO: 在此添加控件通知处理程序代码
-	*pResult = 0;
+	string path;
+	if (MT_SelectFolder(path))
+	{
+		sprintf_s(mSavePath, "%s", path.c_str());
+		m_Static_path.SetWindowTextA(mSavePath);
+	}
 }
+
+void CEverythingProDlg::OnBnClickedButtonSearch2()
+{
+	MT_CmdOrder(CT_OPEN, mSavePath);
+}
+
+
+
+
